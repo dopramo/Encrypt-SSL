@@ -1,4 +1,3 @@
-```markdown
 # Deploying a Flask Application with Nginx and Let's Encrypt SSL on Ubuntu
 
 This guide provides a refined setup for deploying a Flask application on an Ubuntu server using Nginx as a reverse proxy and Let's Encrypt for SSL certificates. It addresses common errors such as Nginx configuration issues, Certbot failures, and static file access problems.
@@ -14,78 +13,6 @@ This guide provides a refined setup for deploying a Flask application on an Ubun
 The Flask application below handles a chatbot interface with session management and CORS support. It remains unchanged from the original but is included for completeness.
 
 ```python
-from flask import Flask, jsonify, request, render_template, session
-import csv
-import os
-from flask_cors import CORS
-
-app = Flask(__name__)
-app.secret_key = os.environ.get('SECRET_KEY', 'your_secret_key')
-CORS(app, supports_credentials=True)
-
-# Configure session cookies for HTTPS
-app.config['SESSION_COOKIE_SAMESITE'] = 'None'
-app.config['SESSION_COOKIE_SECURE'] = True
-
-def load_menus():
-    menus = []
-    with open('menus.csv', newline='', encoding='utf-8') as csvfile:
-        reader = csv.DictReader(csvfile)
-        for row in reader:
-            row['id'] = int(row['id'])
-            menus.append(row)
-    return menus
-
-@app.route("/")
-def index():
-    return render_template("index.html")
-
-@app.route("/suggest", methods=["POST"])
-def suggest_post():
-    data = request.get_json()
-    ids = set(map(int, data.get("ids", [])))
-    session['filtered_menu_ids'] = list(ids)
-    return jsonify({"filtered_menu_ids": session['filtered_menu_ids']})
-
-@app.route("/suggest", methods=["GET"])
-def suggest_get():
-    query = request.args.get("q", "").strip().lower()
-    if 'filtered_menu_ids' not in session:
-        return jsonify({"error": "No filtered menu ids found. Please POST first."}), 400
-
-    ids = set(session.get('filtered_menu_ids', []))
-    filtered_menus = [m for m in load_menus() if m['id'] in ids]
-
-    menus = []
-    exact_match = None
-    for row in filtered_menus:
-        title = row['title'].strip().lower()
-        if query == title:
-            exact_match = {
-                "title": row['title'],
-                "url": row['url'],
-                "description": row.get('description', '')
-            }
-            break
-
-    if exact_match:
-        return jsonify([exact_match])
-
-    query_words = [w.strip() for w in query.split() if w.strip()]
-    for row in filtered_menus:
-        keywords = [k.strip().lower() for k in row['keywords'].split(',')]
-        title = row['title'].lower()
-        if any(
-            k.startswith(qw) or title.startswith(qw)
-            for qw in query_words
-            for k in keywords
-        ):
-            menus.append({
-                "title": row['title'],
-                "url": row['url'],
-                "description": row.get('description', '')
-            })
-    return jsonify(menus)
 
 if __name__ == "__main__":
     app.run(host='0.0.0.0', port=5000)
